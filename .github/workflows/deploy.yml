@@ -52,7 +52,4 @@ jobs:
             echo "¡Conectado exitosamente por SSH a la VPS!"
             hostname
             whoami
-            update
-            
-            
-          
+            apt update
