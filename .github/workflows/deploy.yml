@@ -3,7 +3,7 @@ name: Build and Publish Docker Image
 on:
   push:
     branches:
-      - main
+      - main 
 
 env:
   REGISTRY: ghcr.io
@@ -32,7 +32,7 @@ jobs:
       - name: Publicar la imagen creada
         run: docker push ghcr.io/${{ github.repository_owner }}/docker-flask:1.0.0
 
-      # 4. Mostrar variables informativas
+      # 4. Mostrar variables informativas (Paso de depuración local)
       - name: Mostrar variables (solo locales, no secretos)
         run: |
           echo "Preparando conexión SSH hacia la VPS..."
@@ -40,12 +40,25 @@ jobs:
           echo "Usuario: ${{ secrets.VPS_USER }}"
           echo "Puerto: ${{ secrets.VPS_SSH_PORT }}"
 
-      # 5. Ejecutar despliegue (Simulado localmente para saltar el firewall de Contabo)
-      - name: Ejecutar despliegue en la VPS vía SSH
-        run: |
-          echo "¡Conectado exitosamente por SSH a la VPS!"
-          echo "vmi1469533.contaboserver.net"
-          echo "1726789322"
-          echo "Simulando: apt update exitoso"
-          touch quintoa.txt
-          
+      # 5. Pasar archivos desde git al VPS (Corregido con docker-compose.yml)
+      - name: Pasar archivos desde git al VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          source: "docker-compose.yml,Makefile"
+          target: "/home/${{ secrets.VPS_USER }}/landinga"
+
+      # 6. Ejecutar comandos de despliegue remotos en la VPS vía SSH
+      - name: Probando conexión SSH y ejecutando comandos en el VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            echo "Probando conexion ssh en el vps"
+            touch quintoa.txt
