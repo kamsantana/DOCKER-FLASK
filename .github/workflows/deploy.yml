@@ -1,75 +1,97 @@
-name: Publicar Imagen en GitHub Packages
+name: Build and Push Docker Image
 
 on:
   push:
-    branches: ["main", "master"]
-  pull_request:
-    branches: ["main", "master"]
+    branches:
+      - main
 
-# Permisos para que la Action pueda guardar el paquete en tu perfil kamsantana
-permissions:
-  contents: read
-  packages: write
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} 
 
 jobs:
-  test-and-validate:
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: 1. Descargar codigo del repositorio
+      # 1. Descargar el código del repositorio
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 2. Configurar entorno de Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: 3. Instalar dependencias en la Action
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: 4. Iniciar sesion en GitHub Packages (GHCR)
+      # 2. Iniciar sesión en GitHub Container Registry
+      - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: kamsantana
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 5. Validar y Publicar la imagen Docker en tu perfil
+      # 3. Generar las etiquetas (tags) automáticamente
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=1.0.0
+            type=raw,value=latest
+
+      # 4. Construir la imagen y subirla a GHCR
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
           push: true
-          tags: |
-            ghcr.io/kamsantana/holaflask:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Mostrar variables (solo locales, no secretos)
-        run: |
-          echo "Probando conexión SSH con:"
-          echo "Host: ${{ secrets.VPS_HOST }}"
-          echo "Usuario: ${{ secrets.VPS_USERS }}"
-          echo "Puerto: ${{ secrets.VPS_SSH_PORT }}"
-          echo "Password: ${{ secrets.VPS_PASSWORD }}"
-
-      - name: Probar la SSH en el VPS
-        uses: appleboy/ssh-action@v1.0.3
+      # 5. Probar la conexión SSH en el VPS
+      - name: probar la ssh en el vps
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERS }}
+          username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_SSH_PORT }}
           script: |
-            echo "Probando conexion ssh el vps"
-            touch quintoa.txt
+            echo "probando conexion ssh..."
+            mkdir -p ~/landinga
+            touch ~/landinga/quintoa.txt
 
-      - name: Pasar archivos desde git al VPS
+      # 6. Pasar archivos desde Git al VPS
+      - name: pasar archivos desde el git al vps
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERS }}
+          username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_SSH_PORT }}
           source: "stack.yml,Makefile"
-          target: "/home/${{ secrets.VPS_USERS }}/landinga"
+          target: "/home/${{ secrets.VPS_USER }}/landinga"
+
+      # 7. Despliegue de los servicios (CON INTEGRACIÓN DE NOMBRE DE PAQUETE REAL Y CORRECCIÓN TTY)
+      - name: Despliegue de los servicios
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            echo "✅ Desplegando servicios"
+            cd ~/landinga
+
+            # Solución TTY definitiva usando printf
+            echo "==> Iniciando sesión en GHCR..."
+            printf "%s" "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            # Corrección de nombre: Usando el paquete real 'devops_15_05_26' en minúsculas
+            echo "==> Descargando la imagen..."
+            docker pull ghcr.io/ajvera2000/devops_15_05_26:latest
+
+            # Despliegue final del stack en Swarm
+            echo "==> Desplegando stack..."
+            docker stack deploy -c stack.yml borrar
