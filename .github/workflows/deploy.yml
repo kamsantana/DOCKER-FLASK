@@ -1,38 +1,51 @@
-name: Build and Publish Docker Image
+name: Publicar Imagen en GitHub Packages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
 
+# Permisos para que la Action pueda guardar el paquete en tu perfil kamsantana
 permissions:
   contents: read
   packages: write
 
 jobs:
-  build-and-push:
+  test-and-validate:
     runs-on: ubuntu-latest
 
     steps:
       - name: 1. Descargar codigo del repositorio
         uses: actions/checkout@v4
 
-      - name: 2. Iniciar sesion en GitHub Packages (GHCR)
+      - name: 2. Configurar entorno de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: 3. Instalar dependencias en la Action
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 4. Iniciar sesion en GitHub Packages (GHCR)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: kamsantana
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 3. Validar y Publicar la imagen Docker
+      - name: 5. Validar y Publicar la imagen Docker en tu perfil
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/docker-flask:1.0.0
+            ghcr.io/kamsantana/holaflask:latest
 
-      - name: 4. Mostrar variables informativas
+      - name: Mostrar variables (solo locales, no secretos)
         run: |
           echo "Probando conexión SSH con:"
           echo "Host: ${{ secrets.VPS_HOST }}"
@@ -40,8 +53,7 @@ jobs:
           echo "Puerto: ${{ secrets.VPS_SSH_PORT }}"
           echo "Password: ${{ secrets.VPS_PASSWORD }}"
 
-      # Igual que tu compañero: Primero abrimos la sesión SSH (Usa la versión v1.0.3 exacta)
-      - name: 5. Probar la SSH en el VPS y preparar entorno
+      - name: Probar la SSH en el VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -52,25 +64,12 @@ jobs:
             echo "Probando conexion ssh el vps"
             touch quintoa.txt
 
-      # Igual que tu compañero: El SCP va al final (Usa la versión v1 exacta)
-      - name: 6. Pasar archivos desde git al VPS
+      - name: Pasar archivos desde git al VPS
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERS }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          source: "docker-compose.yml,Makefile"
+          source: "stack.yml,Makefile"
           target: "/home/${{ secrets.VPS_USERS }}/landinga"
-
-      # Paso final exclusivo tuyo: Ejecutar el despliegue con tu Makefile
-      - name: 7. Ejecutar despliegue en el VPS usando Makefile
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERS }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_SSH_PORT }}
-          script: |
-            cd /home/${{ secrets.VPS_USERS }}/landinga
-            make deploy
