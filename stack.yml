@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile
     networks:
-      - webpublica
+      - traefik-public
     deploy:
       replicas: 1
       update_config:
@@ -17,26 +17,21 @@ services:
         condition: on-failure
       labels:
         - "traefik.enable=true"
-        # Cambiado entrypoint de http a web (así está configurado en tu VPS)
         - "traefik.http.routers.kevin.entrypoints=web"
-        # CORREGIDO: Añadidas las comillas invertidas ` ` en el Host
         - "traefik.http.routers.kevin.rule=Host(`kevin.byronrm.com`)"
         
-        # Configuración de redirección segura SSL (HTTPS)
         - "traefik.http.middlewares.kevin-https-redirect.redirectscheme.scheme=https"
         - "traefik.http.routers.kevin.middlewares=kevin-https-redirect"
         - "traefik.http.routers.kevin-secure.entrypoints=https"
-        # CORREGIDO: Añadidas las comillas invertidas ` ` aquí también
         - "traefik.http.routers.kevin-secure.rule=Host(`kevin.byronrm.com`)"
         - "traefik.http.routers.kevin-secure.tls=true"
         - "traefik.http.routers.kevin-secure.tls.certresolver=http"
         - "traefik.http.routers.kevin-secure.service=kevin"
         
-        # Puerto donde corre tu app interna de Flask
         - "traefik.http.services.kevin.loadbalancer.server.port=5000"
-        - "traefik.docker.network=portainer_webpublica"
+        - "traefik.docker.network=traefik-public"
 
 networks:
-  webpublica:
+  traefik-public:
     external: true
-    name: portainer_webpublica
+    name: traefik-public
