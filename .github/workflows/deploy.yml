@@ -32,36 +32,45 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/docker-flask:1.0.0
 
-      - name: 4. Mostrar variables informativas (Corregido con VPS_USERS)
+      - name: 4. Mostrar variables informativas
         run: |
-          echo "Preparando conexión SSH hacia la VPS..."
+          echo "Probando conexión SSH con:"
           echo "Host: ${{ secrets.VPS_HOST }}"
           echo "Usuario: ${{ secrets.VPS_USERS }}"
           echo "Puerto: ${{ secrets.VPS_SSH_PORT }}"
+          echo "Password: ${{ secrets.VPS_PASSWORD }}"
 
-      # Modificado a @master con timeouts añadidos para romper el bloqueo de red
-      - name: 5. Pasar archivos desde git al VPS
-        uses: appleboy/scp-action@master
+      # Igual que tu compañero: Primero abrimos la sesión SSH (Usa la versión v1.0.3 exacta)
+      - name: 5. Probar la SSH en el VPS y preparar entorno
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERS }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          timeout: 40s
-          command_timeout: 5m
+          script: |
+            echo "Probando conexion ssh el vps"
+            touch quintoa.txt
+
+      # Igual que tu compañero: El SCP va al final (Usa la versión v1 exacta)
+      - name: 6. Pasar archivos desde git al VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERS }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_SSH_PORT }}
           source: "docker-compose.yml,Makefile"
           target: "/home/${{ secrets.VPS_USERS }}/landinga"
 
-      # Modificado a @master con timeouts añadidos para estabilizar la sesión SSH
-      - name: 6. Ejecutar despliegue en el VPS usando Makefile
-        uses: appleboy/ssh-action@master
+      # Paso final exclusivo tuyo: Ejecutar el despliegue con tu Makefile
+      - name: 7. Ejecutar despliegue en el VPS usando Makefile
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERS }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          timeout: 40s
-          command_timeout: 5m
           script: |
             cd /home/${{ secrets.VPS_USERS }}/landinga
             make deploy
