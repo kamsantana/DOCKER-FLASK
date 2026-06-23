@@ -1,1 +1,34 @@
-version: "2.1"
+version: '3.8'
+
+services:
+  kevin:
+    image: ghcr.io/kamsantana/docker-flask:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - traefik-public
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.kevin.entrypoints=http"
+        - "traefik.http.routers.kevin.rule=Host(kevin.byronrm.com)"
+        - "traefik.http.middlewares.kevin-https-redirect.redirectscheme.scheme=https"
+        - "traefik.http.routers.kevin.middlewares=kevin-https-redirect"
+        - "traefik.http.routers.kevin-secure.entrypoints=https"
+        - "traefik.http.routers.kevin-secure.rule=Host(kevin.byronrm.com)"
+        - "traefik.http.routers.kevin-secure.tls=true"
+        - "traefik.http.routers.kevin-secure.tls.certresolver=http"
+        - "traefik.http.routers.kevin-secure.service=kevin"
+        - "traefik.http.services.kevin.loadbalancer.server.port=5000"
+        - "traefik.docker.network=traefik-public"
+
+networks:
+  traefik-public:
+    external: true

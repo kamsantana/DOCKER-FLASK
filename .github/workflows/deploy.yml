@@ -90,7 +90,7 @@ jobs:
 
             # Corrección de nombre: Usando el paquete real 'devops_15_05_26' en minúsculas
             echo "==> Descargando la imagen..."
-            docker pull ghcr.io/ajvera2000/devops_15_05_26:latest
+            docker pull ghcr.io/kamsantana/docker-flask:1.0.0
 
             # Despliegue final del stack en Swarm
             echo "==> Desplegando stack..."
